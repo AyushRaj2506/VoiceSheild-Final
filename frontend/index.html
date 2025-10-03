@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voice Shield: AI-Powered Aggression Detector</title>
-    <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter font from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
@@ -39,6 +35,12 @@
             align-items: center;
             gap: 1.5rem;
         }
+        .headline {
+            background: linear-gradient(90deg, #ffffff 0%, #93c5fd 50%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
         .video-container {
             position: relative;
             width: 100%;
@@ -46,11 +48,13 @@
             border-radius: 1rem;
             overflow: hidden;
             background-color: #000;
+            box-shadow: 0 10px 30px rgba(2, 6, 23, 0.7), inset 0 0 0 1px rgba(148, 163, 184, 0.1);
         }
         video {
             width: 100%;
             height: auto;
             display: block;
+            /* This will mirror the video feed, which is more intuitive for users */
             transform: scaleX(-1);
         }
         canvas {
@@ -59,13 +63,13 @@
             left: 0;
             width: 100%;
             height: 100%;
-            transform: scaleX(-1);
         }
         .score-display {
             display: flex;
             gap: 1rem;
             margin-top: 1rem;
             justify-content: center;
+            flex-wrap: wrap;
         }
         .score-card {
             background-color: rgba(51, 65, 85, 0.8);
@@ -108,7 +112,7 @@
             width: 100%;
             max-width: 400px;
             height: 60px;
-            background-color: rgba(51, 65, 85, 0.8);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
             border: 1px solid rgba(148, 163, 184, 0.3);
             border-radius: 0.75rem;
             display: flex;
@@ -134,6 +138,22 @@
             gap: 0.5rem;
             margin-top: 1rem;
         }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 9999px;
+            background-color: #ef4444; /* disconnected */
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+        }
+        .status-dot.connected {
+            background-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        .status-dot.recording {
+            background-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
         .button-group {
             display: flex;
             gap: 1rem;
@@ -148,6 +168,7 @@
             cursor: pointer;
             transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(148, 163, 184, 0.2);
         }
         .btn-primary {
             background-color: #3b82f6;
@@ -189,6 +210,28 @@
         .message-box.show {
             display: block;
         }
+
+        /* Anger threshold slider styling */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #ef4444;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
+        #aggressionPopup {
+            transition: opacity 0.3s ease;
+        }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -197,15 +240,14 @@
 </head>
 <body>
     <div class="container">
-        <!-- Navigation to intro page -->
         <div class="absolute top-4 left-4 z-10">
-            <a href="../intro.html" class="inline-flex items-center space-x-2 bg-white bg-opacity-90 hover:bg-opacity-100 px-4 py-2 rounded-full shadow-lg transition-all duration-300 hover:shadow-xl">
-                <i class="fas fa-arrow-left text-blue-600"></i>
-                <span class="text-blue-600 font-medium">Back to Intro</span>
+            <a href="intro.html" class="inline-flex items-center space-x-2 px-4 py-2 rounded-full shadow-lg transition-all duration-300 hover:shadow-xl" style="background: rgba(2,6,23,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(148,163,184,0.25); color: #e2e8f0;">
+                <i class="fas fa-arrow-left" style="color:#93c5fd;"></i>
+                <span class="font-medium">Back to Intro</span>
             </a>
         </div>
         
-        <h1 class="text-3xl font-bold text-white text-center">Voice Shield: AI-Powered Aggression Detector</h1>
+        <h1 class="text-3xl font-bold text-center headline">Voice Shield: AI-Powered Aggression Detector</h1>
         <p class="text-slate-300 text-center">
             Advanced emotion detection using facial expressions and voice analysis.
             <br>Please grant camera and microphone access to begin.
@@ -267,20 +309,37 @@
             <button id="stopButton" class="btn btn-danger" disabled>Stop Detection</button>
             <button id="connectButton" class="btn btn-success">Connect to AI Server</button>
         </div>
+        
+        <div class="w-full max-w-sm mt-4 p-4 rounded-lg bg-slate-700/50 border border-slate-600">
+            <label for="angerThreshold" class="block text-sm font-medium text-slate-300">
+                Anger Alert Threshold: <span id="angerThresholdValue" class="font-bold text-blue-400">50%</span>
+            </label>
+            <input id="angerThreshold" type="range" min="10" max="90" value="50" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer mt-2">
+        </div>
+        
         <div id="loadingMessage" class="message-box show">
             Loading facial recognition models... Please wait.
         </div>
         <div id="errorMessage" class="message-box">
             An error occurred. Please ensure camera and microphone access is granted.
         </div>
-        <div id="aggressionPopup" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;">
-            <div style="background:rgba(30,41,59,0.95);border:1px solid rgba(239,68,68,0.5);padding:2rem 3rem;border-radius:1rem;box-shadow:0 4px 24px rgba(0,0,0,0.5);font-size:1.5rem;font-weight:700;color:#f87171;text-align:center;">
-                Aggression Detected
+        <div id="aggressionPopup" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;opacity:0;">
+            <div style="background:rgba(30,41,59,0.95);border:1px solid rgba(239,68,68,0.5);padding:2rem 3rem;border-radius:1rem;box-shadow:0 4px 24px rgba(0,0,0,0.5);text-align:center;max-width:90%;width:400px;">
+                <div class="text-red-500 text-5xl mb-4">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3 style="font-size:1.5rem;font-weight:700;color:#f87171;margin-bottom:1rem;">Aggression Detected</h3>
+                <p style="color:#e2e8f0;font-size:1.1rem;margin-bottom:1rem;">High levels of anger detected in the environment</p>
+                <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:0.5rem;border-radius:0.5rem;margin-bottom:1rem;">
+                    <p style="color:#fca5a5;font-size:0.9rem;">Current Anger Level: <span id="popupAngerLevel">0%</span></p>
+                </div>
+                <button onclick="hideAggressionPopup()" style="background:#ef4444;color:white;padding:0.5rem 1.5rem;border-radius:0.5rem;font-weight:600;transition:all 0.2s ease;">
+                    Acknowledge
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- face-api.js library -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
     <script>
@@ -312,7 +371,6 @@
         const combinedScore = document.getElementById('combinedScore');
         const faceCountDisplay = document.getElementById('faceCount');
         const multiFaceIndicator = document.getElementById('multiFaceIndicator');
-        const multiVoiceIndicator = document.getElementById('multiVoiceIndicator');
         const aggressionPopup = document.getElementById('aggressionPopup');
         const listeningIndicator = document.getElementById('listeningIndicator');
         const voiceDetectionText = document.getElementById('voiceDetectionText');
@@ -332,11 +390,29 @@
         let dataArray = null;
         let animationId = null;
 
+        // Face count smoothing (mode of last N frames)
+        const FACE_COUNT_WINDOW = 15;
+        let faceCountHistory = [];
+        function pushFaceCount(count) {
+            faceCountHistory.push(count);
+            if (faceCountHistory.length > FACE_COUNT_WINDOW) faceCountHistory.shift();
+        }
+        function getStableFaceCount() {
+            if (faceCountHistory.length === 0) return 0;
+            const freq = new Map();
+            faceCountHistory.forEach(c => freq.set(c, (freq.get(c) || 0) + 1));
+            let best = faceCountHistory[faceCountHistory.length - 1];
+            let bestN = 0;
+            for (const [k, v] of freq.entries()) {
+                if (v > bestN) { bestN = v; best = k; }
+            }
+            return best;
+        }
+
         // Configuration
-        const MODELS_CDN_PATH = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-        const SOCKET_URL = 'https://voicesheild-prototype.onrender.com';
+        const MODELS_CDN_PATH = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        const SOCKET_URL = 'http://localhost:10000';
         const AUDIO_SAMPLE_RATE = 16000;
-        const AUDIO_CHUNK_SIZE = 1024;
 
         // Create audio visualizer bars
         function createAudioBars() {
@@ -352,17 +428,14 @@
         // Update audio visualizer
         function updateAudioVisualizer() {
             if (!analyser || !dataArray) return;
-
             analyser.getByteFrequencyData(dataArray);
             const bars = audioBars.children;
             const step = Math.floor(dataArray.length / bars.length);
-
             for (let i = 0; i < bars.length; i++) {
                 const value = dataArray[i * step];
                 const height = (value / 255) * 40;
                 bars[i].style.height = `${Math.max(2, height)}px`;
             }
-
             animationId = requestAnimationFrame(updateAudioVisualizer);
         }
 
@@ -373,11 +446,9 @@
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-
                 if (audioStream) {
                     microphone = audioContext.createMediaStreamSource(audioStream);
                     microphone.connect(analyser);
-                    createAudioBars();
                     updateAudioVisualizer();
                 }
             } catch (error) {
@@ -388,10 +459,7 @@
         // Send audio data to AI server
         function sendAudioData(audioData) {
             if (socket && socket.connected) {
-                socket.emit('audio', {
-                    data: audioData,
-                    timestamp: Date.now()
-                });
+                socket.emit('audio', { data: audioData, timestamp: Date.now() });
             }
         }
 
@@ -399,36 +467,26 @@
         async function connectToAIServer() {
             try {
                 socket = io(SOCKET_URL);
-                
                 socket.on('connect', () => {
                     isConnected = true;
                     statusDot.classList.add('connected');
                     statusText.textContent = 'Connected to AI Server';
                     connectButton.disabled = true;
-                    console.log('Connected to AI server');
+                    hideMessageBoxes();
                 });
-
                 socket.on('disconnect', () => {
                     isConnected = false;
                     statusDot.classList.remove('connected');
                     statusText.textContent = 'Disconnected';
                     connectButton.disabled = false;
-                    console.log('Disconnected from AI server');
                 });
-
                 socket.on('emotion_analysis', (data) => {
                     handleAIAnalysis(data);
                 });
-
-                socket.on('status', (data) => {
-                    console.log('Server status:', data.message);
-                });
-
                 socket.on('error', (data) => {
                     console.error('Server error:', data.message);
                     showMessageBox(data.message, 'error');
                 });
-
             } catch (error) {
                 console.error('Error connecting to AI server:', error);
                 showMessageBox('Failed to connect to AI server.', 'error');
@@ -438,36 +496,20 @@
         // Send facial analysis data to AI server
         function sendFacialData(detections) {
             if (socket && socket.connected && detections.length > 0) {
-                // Process all detected faces, not just the first one
                 detections.forEach((detection, index) => {
-                    const expressions = detection.expressions;
-                    console.log(`Sending facial data for face ${index + 1}:`, expressions);
-                    
                     socket.emit('facial_analysis', {
-                        expressions: expressions,
+                        expressions: detection.expressions,
                         timestamp: Date.now(),
                         faceIndex: index
                     });
                 });
-            } else {
-                if (!socket) {
-                    console.log('Socket not connected');
-                } else if (!socket.connected) {
-                    console.log('Socket not connected');
-                } else if (detections.length === 0) {
-                    console.log('No faces detected');
-                }
             }
         }
 
         // Update emotion probabilities display
         function updateEmotionProbabilities(detections) {
-            const emotions = {
-                neutral: 0, happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0
-            };
-
+            const emotions = { neutral: 0, happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0 };
             if (detections.length > 0) {
-                // Calculate average emotions across all detected faces
                 detections.forEach(detection => {
                     const expressions = detection.expressions;
                     for (const emotion in expressions) {
@@ -476,110 +518,75 @@
                         }
                     }
                 });
-
-                // Average the emotions
                 for (const emotion in emotions) {
-                    emotions[emotion] = Math.round((emotions[emotion] / detections.length) * 100);
+                    const percent = (emotions[emotion] / detections.length) * 100;
+                    emotions[emotion] = Math.round(percent * 10) / 10;
                 }
-                
-                // Local fallback aggression calculation
                 const angryScore = emotions.angry;
                 const fearfulScore = emotions.fearful;
                 const disgustedScore = emotions.disgusted;
-                
-                // Calculate local aggression score (weighted)
-                const localAggressionScore = Math.round(
-                    (angryScore * 0.4) + (fearfulScore * 0.3) + (disgustedScore * 0.2)
-                );
-                
-                // Update facial score display
-                facialScore.textContent = `${localAggressionScore}%`;
-                
-                // Update aggression bar if no AI response
-                if (!socket || !socket.connected) {
-                    // updateAggressionBar(localAggressionScore); // This function is removed
-                }
+                const localAggressionScore = Math.round(((angryScore * 0.4) + (fearfulScore * 0.3) + (disgustedScore * 0.2)) * 10) / 10;
+                facialScore.textContent = `${localAggressionScore.toFixed(1)}%`;
             }
-
-            emotionNeutral.textContent = `Neutral: ${emotions.neutral}%`;
-            emotionHappy.textContent = `Happy: ${emotions.happy}%`;
-            emotionSad.textContent = `Sad: ${emotions.sad}%`;
-            emotionAngry.textContent = `Angry: ${emotions.angry}%`;
-            emotionFearful.textContent = `Fearful: ${emotions.fearful}%`;
-            emotionDisgusted.textContent = `Disgusted: ${emotions.disgusted}%`;
-            emotionSurprised.textContent = `Surprised: ${emotions.surprised}%`;
+            emotionNeutral.textContent = `Neutral: ${emotions.neutral.toFixed(1)}%`;
+            emotionHappy.textContent = `Happy: ${emotions.happy.toFixed(1)}%`;
+            emotionSad.textContent = `Sad: ${emotions.sad.toFixed(1)}%`;
+            emotionAngry.textContent = `Angry: ${emotions.angry.toFixed(1)}%`;
+            emotionFearful.textContent = `Fearful: ${emotions.fearful.toFixed(1)}%`;
+            emotionDisgusted.textContent = `Disgusted: ${emotions.disgusted.toFixed(1)}%`;
+            emotionSurprised.textContent = `Surprised: ${emotions.surprised.toFixed(1)}%`;
         }
 
         // Handle AI analysis results
         function handleAIAnalysis(data) {
-            console.log('Received AI analysis:', data);
             aiAnalysis.style.display = 'block';
-            // Option 3: Only show voice emotion if confidence is above threshold
             const voiceConfidence = data.confidence || 0;
             const voiceEmotion = data.voiceEmotion || 'Unknown';
             const confidenceThreshold = 60;
             if (voiceConfidence >= confidenceThreshold) {
                 aiVoiceEmotion.textContent = `Voice Emotion: ${voiceEmotion}`;
+                voiceDetectionText.textContent = voiceEmotion;
+                listeningIndicator.style.display = 'inline';
             } else {
                 aiVoiceEmotion.textContent = `Voice Emotion: Uncertain`;
+                voiceDetectionText.textContent = 'Uncertain';
+                listeningIndicator.style.display = 'none';
             }
             aiConfidence.textContent = `Confidence: ${voiceConfidence}%`;
             aiRecommendation.textContent = `Recommendation: ${data.recommendation || 'No action needed'}`;
-            // Option 6: Show listening indicator if voice confidence is above threshold
-            if (voiceConfidence >= confidenceThreshold) {
-                listeningIndicator.style.display = 'inline';
-            } else {
-                listeningIndicator.style.display = 'none';
-            }
-            // Update the new Voice Detection tab
-            if (voiceConfidence >= confidenceThreshold) {
-                voiceDetectionText.textContent = voiceEmotion;
-            } else {
-                voiceDetectionText.textContent = 'Uncertain';
-            }
-            // Update score displays
-            facialScore.textContent = `${data.facialScore || 0}%`;
-            voiceScore.textContent = `${data.audioScore || 0}%`;
-            combinedScore.textContent = `${data.combinedScore || 0}%`;
-            
-            // Update face count if provided
+            const facial = typeof data.facialScore === 'number' ? data.facialScore : 0;
+            const audio = typeof data.audioScore === 'number' ? data.audioScore : 0;
+            const combined = typeof data.combinedScore === 'number' ? data.combinedScore : 0;
+            facialScore.textContent = `${facial.toFixed(1)}%`;
+            voiceScore.textContent = `${audio.toFixed(1)}%`;
+            combinedScore.textContent = `${combined.toFixed(1)}%`;
             if (data.faceCount !== undefined) {
                 faceCountDisplay.textContent = data.faceCount;
-                if (data.faceCount > 1) {
-                    multiFaceIndicator.style.display = 'block';
-                } else {
-                    multiFaceIndicator.style.display = 'none';
-                }
+                multiFaceIndicator.style.display = data.faceCount > 1 ? 'block' : 'none';
             }
-            // Render emotion bar chart
-            renderEmotionBarChart(data.emotionBars);
-            // Render voice bar chart if present
-            // renderVoiceBarChart(data.audioBars); // This function is removed
-            // Update voice emotion probabilities display // This function is removed
-            // updateVoiceEmotionProbabilities(data.audioBars, data.multi_voice); // This function is removed
-
-            // Aggression popup logic
-            let facialAnger = data.emotionBars && data.emotionBars.angry ? data.emotionBars.angry : 0;
-            let voiceAnger = data.audioBars && data.audioBars.angry ? data.audioBars.angry : 0;
-            if (facialAnger > 40 || voiceAnger > 40) {
-                aggressionPopup.style.display = 'flex';
-            } else {
-                aggressionPopup.style.display = 'none';
-            }
+            checkAngerThreshold(data);
         }
 
         // Message box functions
         function showMessageBox(message, type) {
             loadingMessage.classList.remove('show');
             errorMessage.classList.remove('show');
-
-            if (type === 'loading') {
-                loadingMessage.textContent = message;
-                loadingMessage.classList.add('show');
-            } else if (type === 'error') {
-                errorMessage.textContent = message;
-                errorMessage.classList.add('show');
+            let box = type === 'error' ? errorMessage : loadingMessage;
+            if (type === 'error') {
+                box.style.background = 'rgba(239, 68, 68, 0.2)';
+                box.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                box.style.color = '#fca5a5';
+            } else if (type === 'success') {
+                box.style.background = 'rgba(16, 185, 129, 0.2)';
+                box.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                box.style.color = '#6ee7b7';
+            } else {
+                box.style.background = 'rgba(59, 130, 246, 0.2)';
+                box.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                box.style.color = '#93c5fd';
             }
+            box.textContent = message;
+            box.classList.add('show');
         }
 
         function hideMessageBoxes() {
@@ -589,161 +596,107 @@
 
         // Load face-api.js models
         async function loadModels() {
-            showMessageBox('Loading facial recognition models... This may take a moment.', 'loading');
+            showMessageBox('Loading facial recognition models... Please wait.', 'loading');
             try {
                 await faceapi.nets.ssdMobilenetv1.loadFromUri(MODELS_CDN_PATH);
                 await faceapi.nets.faceExpressionNet.loadFromUri(MODELS_CDN_PATH);
                 await faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_CDN_PATH);
-                console.log('Models loaded successfully!');
                 modelsLoaded = true;
-                hideMessageBoxes();
                 startButton.disabled = false;
+                showMessageBox('Models loaded successfully! You can now start detection.', 'success');
             } catch (error) {
                 console.error('Error loading models:', error);
-                showMessageBox('Failed to load models. Please check your internet connection and try again.', 'error');
+                showMessageBox('Failed to load models. Check internet connection and console.', 'error');
                 startButton.disabled = true;
-            }
-        }
-
-        // Start audio capture and sending
-        async function startAudioCapture() {
-            try {
-                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(audioStream);
-                mediaRecorder.ondataavailable = function(e) {
-                    if (e.data && e.data.size > 0) {
-                        let reader = new FileReader();
-                        reader.onloadend = function() {
-                            const base64data = reader.result.split(',')[1];
-                            sendAudioData(base64data);
-                        };
-                        reader.readAsDataURL(e.data);
-                    }
-                };
-                mediaRecorder.start(1000); // Send audio every second
-                console.log("MediaRecorder started");
-            } catch (err) {
-                alert("Microphone access denied or not available.");
-                console.error(err);
-            }
-        }
-
-        // Stop audio capture
-        function stopAudioCapture() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder = null;
-            }
-            if (audioStream) {
-                audioStream.getTracks().forEach(track => track.stop());
-                audioStream = null;
             }
         }
 
         // Start detection (camera + microphone)
         async function startDetection() {
-            if (!modelsLoaded) {
-                showMessageBox('Models are still loading. Please wait...', 'loading');
-                return;
-            }
-
             try {
-                // Start camera and audio
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: true, 
-                    audio: {
-                        sampleRate: AUDIO_SAMPLE_RATE,
-                        channelCount: 1,
-                        echoCancellation: true,
-                        noiseSuppression: true
-                    }
+                if (!modelsLoaded) return showMessageBox('Models are still loading. Please wait.', 'loading');
+                if (!socket || !socket.connected) return showMessageBox('Please connect to AI server first.', 'error');
+
+                showMessageBox('Requesting camera and microphone access...', 'loading');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                    audio: { sampleRate: AUDIO_SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
                 });
-                const videoTrack = stream.getVideoTracks()[0];
-                const audioTrack = stream.getAudioTracks()[0];
-                videoInput.srcObject = new MediaStream([videoTrack]);
-                audioStream = new MediaStream([audioTrack]);
+
+                videoInput.srcObject = stream;
+                audioStream = new MediaStream(stream.getAudioTracks());
                 await initializeAudio();
-                // Start MediaRecorder for audio
-                if (audioStream) {
-                    mediaRecorder = new MediaRecorder(audioStream);
-                    mediaRecorder.ondataavailable = function(e) {
-                        if (e.data && e.data.size > 0) {
-                            let reader = new FileReader();
-                            reader.onloadend = function() {
-                                const base64data = reader.result.split(',')[1];
-                                sendAudioData(base64data);
-                            };
-                            reader.readAsDataURL(e.data);
-                        }
-                    };
-                    mediaRecorder.start(1000); // Send audio every second
-                }
-                // Start video processing
-                videoInput.addEventListener('play', () => {
-                    function drawBoxWithPadding(box, ctx, color = '#3b82f6', padding = 0) {
-                        ctx.save();
-                        ctx.strokeStyle = color;
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.rect(
-                            Math.max(0, box.x - padding),
-                            Math.max(0, box.y - padding),
-                            box.width + 2 * padding,
-                            box.height + 2 * padding
-                        );
-                        ctx.stroke();
-                        ctx.restore();
+
+                mediaRecorder = new MediaRecorder(audioStream);
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => sendAudioData(reader.result.split(',')[1]);
+                        reader.readAsDataURL(e.data);
                     }
+                };
+                mediaRecorder.start(1000);
+
+                videoInput.onloadedmetadata = () => {
                     const displaySize = { width: videoInput.videoWidth, height: videoInput.videoHeight };
-                    overlayCanvas.width = videoInput.videoWidth;
-                    overlayCanvas.height = videoInput.videoHeight;
                     faceapi.matchDimensions(overlayCanvas, displaySize);
+
+                    // LATEST CHANGE: This interval block is updated to fix inverted text
                     intervalId = setInterval(async () => {
-                        const detections = await faceapi.detectAllFaces(
-                            videoInput,
-                            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5, inputSize: 640 })
-                        ).withFaceLandmarks().withFaceExpressions();
+                        const detections = await faceapi.detectAllFaces(videoInput, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                            .withFaceLandmarks()
+                            .withFaceExpressions();
+                        
                         const resizedDetections = faceapi.resizeResults(detections, displaySize);
                         const ctx = overlayCanvas.getContext('2d');
                         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+                        // Save the context state before global mirror transformation
                         ctx.save();
+
+                        // Mirror the entire canvas to correctly draw bounding boxes on a mirrored video feed
+                        ctx.translate(overlayCanvas.width, 0);
                         ctx.scale(-1, 1);
-                        ctx.translate(-overlayCanvas.width, 0);
-                        // Draw custom boxes and overlays
-                        resizedDetections.forEach(det => {
-                            // Draw filled semi-transparent overlay with padding and clamping
-                            const box = det.detection.box;
-                            const padding = 15;
-                            const x = Math.max(0, box.x - padding);
-                            const y = Math.max(0, box.y - padding);
-                            const w = Math.min(overlayCanvas.width - x, box.width + 2 * padding);
-                            const h = Math.min(overlayCanvas.height - y, box.height + 2 * padding);
-                            ctx.save();
-                            ctx.globalAlpha = 0.2;
-                            ctx.fillStyle = '#3b82f6';
-                            ctx.fillRect(x, y, w, h);
-                            ctx.globalAlpha = 1.0;
+
+                        resizedDetections.forEach(detection => {
+                            const box = detection.detection.box;
+                            const expressions = detection.expressions;
+
+                            // Find the dominant emotion with the highest score
+                            const dominantEmotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
+                            const score = expressions[dominantEmotion];
+                            const text = `${dominantEmotion} (${Math.round(score * 100)}%)`;
+                            const textX = box.x;
+                            const textY = box.y > 20 ? box.y - 10 : box.y + box.height + 20;
+
+                            // Draw the blue bounding box
                             ctx.strokeStyle = '#3b82f6';
-                            ctx.lineWidth = 3;
-                            ctx.strokeRect(x, y, w, h);
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(box.x, box.y, box.width, box.height);
+                            
+                            // --- Counter-transform for text drawing to make it readable ---
+                            ctx.save();
+                            ctx.translate(textX, textY);
+                            ctx.scale(-1, 1);
+                            ctx.fillStyle = '#60a5fa';
+                            ctx.font = '16px Inter';
+                            ctx.textAlign = 'right'; 
+                            ctx.fillText(text, 0, 0);
                             ctx.restore();
+                            // --- End counter-transform for text ---
                         });
-                        faceapi.draw.drawFaceExpressions(overlayCanvas, resizedDetections);
+
+                        // Restore the canvas to its original state
                         ctx.restore();
+
+                        // The rest of your logic remains the same
                         updateEmotionProbabilities(resizedDetections);
                         sendFacialData(resizedDetections);
-                        faceCountDisplay.textContent = resizedDetections.length;
-                        if (resizedDetections.length === 0) {
-                            setTimeout(() => {
-                                if (faceCountDisplay.textContent === '0') {
-                                    facialScore.textContent = '0%';
-                                    voiceScore.textContent = '0%';
-                                    combinedScore.textContent = '0%';
-                                }
-                            }, 2000);
-                        }
-                    }, 100);
-                });
+                        pushFaceCount(resizedDetections.length);
+                        faceCountDisplay.textContent = getStableFaceCount();
+
+                    }, 200);
+                };
 
                 isRecording = true;
                 statusDot.classList.add('recording');
@@ -752,33 +705,24 @@
                 hideMessageBoxes();
 
             } catch (error) {
-                alert("Camera or microphone access denied or not available.");
-                console.error(error);
-                showMessageBox('Failed to access camera or microphone. Please ensure permissions are granted.', 'error');
+                console.error('Error in startDetection:', error);
+                let msg = 'Error starting detection.';
+                if (error.name === 'NotAllowedError') msg = 'Camera/mic access denied.';
+                if (error.name === 'NotFoundError') msg = 'No camera/mic found.';
+                showMessageBox(msg, 'error');
                 startButton.disabled = false;
-                stopButton.disabled = true;
             }
         }
 
         // Stop detection
         function stopDetection() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder = null;
-            }
-            if (audioStream) {
-                audioStream.getTracks().forEach(track => track.stop());
-                audioStream = null;
-            }
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                videoInput.srcObject = null;
-                stream = null;
-            }
+            if (intervalId) clearInterval(intervalId);
+            if (mediaRecorder) mediaRecorder.stop();
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            videoInput.srcObject = null;
             overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            facialScore.textContent = '0%';
-            voiceScore.textContent = '0%';
-            combinedScore.textContent = '0%';
+            ['facialScore', 'voiceScore', 'combinedScore'].forEach(id => document.getElementById(id).textContent = '0%');
+            faceCountDisplay.textContent = '0';
             isRecording = false;
             statusDot.classList.remove('recording');
             startButton.disabled = false;
@@ -786,105 +730,52 @@
             hideMessageBoxes();
         }
 
-        // Render emotion bar chart
-        function renderEmotionBarChart(emotionBars) {
-            const chartDiv = document.getElementById('emotionBarChart');
-            if (!emotionBars || Object.keys(emotionBars).length === 0) {
-                chartDiv.innerHTML = '';
-                return;
-            }
-            const colors = {
-                angry: '#ef4444',
-                happy: '#f59e42',
-                sad: '#3b82f6',
-                fearful: '#6366f1',
-                disgusted: '#10b981',
-                surprised: '#fbbf24',
-                neutral: '#6b7280'
-            };
-            chartDiv.innerHTML = Object.entries(emotionBars).map(([emotion, value]) => `
-                <div style="display:flex;align-items:center;margin-bottom:4px;">
-                    <span style="width:80px;text-transform:capitalize;font-size:0.95em;">${emotion}</span>
-                    <div style="flex:1;background:#e5e7eb;height:18px;border-radius:8px;overflow:hidden;margin:0 8px;">
-                        <div style="height:100%;width:${value}%;background:${colors[emotion]||'#3b82f6'};transition:width 0.3s;"></div>
-                    </div>
-                    <span style="width:36px;text-align:right;font-size:0.95em;">${value}%</span>
-                </div>
-            `).join('');
-        }
-
-        // Render voice bar chart
-        function renderVoiceBarChart(audioBars) {
-            const chartDiv = document.getElementById('voiceBarChart');
-            // Always show the bar chart, even if all values are zero or only neutral
-            const emotions = ['angry', 'happy', 'sad', 'fearful', 'disgusted', 'surprised', 'neutral'];
-            const colors = {
-                angry: '#ef4444',
-                happy: '#f59e42',
-                sad: '#3b82f6',
-                fearful: '#6366f1',
-                disgusted: '#10b981',
-                surprised: '#fbbf24',
-                neutral: '#6b7280'
-            };
-            // Fill missing emotions with 0
-            let bars = {};
-            emotions.forEach(e => {
-                bars[e] = audioBars && typeof audioBars[e] === 'number' ? audioBars[e] : 0;
-            });
-            chartDiv.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">Voice Emotion Output</div>' +
-                Object.entries(bars).map(([emotion, value]) => `
-                <div style="display:flex;align-items:center;margin-bottom:4px;">
-                    <span style="width:80px;text-transform:capitalize;font-size:0.95em;">${emotion}</span>
-                    <div style="flex:1;background:#e5e7eb;height:18px;border-radius:8px;overflow:hidden;margin:0 8px;">
-                        <div style="height:100%;width:${value}%;background:${colors[emotion]||'#3b82f6'};transition:width 0.3s;"></div>
-                    </div>
-                    <span style="width:36px;text-align:right;font-size:0.95em;">${value}%</span>
-                </div>
-            `).join('');
-        }
-
-        // Update voice emotion probabilities display
-        function updateVoiceEmotionProbabilities(audioBars, multiVoice) {
-            const voiceEmotionsDisplay = document.getElementById('voiceEmotionsDisplay');
-            if (!audioBars || Object.keys(audioBars).length === 0) {
-                voiceEmotionsDisplay.style.display = 'none';
-                return;
-            }
-            voiceEmotionsDisplay.style.display = 'block';
-            const colors = {
-                angry: '#ef4444',
-                happy: '#f59e42',
-                sad: '#3b82f6',
-                fearful: '#6366f1',
-                disgusted: '#10b981',
-                surprised: '#fbbf24',
-                neutral: '#6b7280'
-            };
-            voiceEmotionsDisplay.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
-                <p><strong>Voice Emotion Probabilities:</strong></p>
-                <span id="multiVoiceIndicator" style="color:#ef4444;font-weight:600;font-size:0.95em;">${multiVoice ? 'Multiple Voices Detected' : 'Single Voice Detected'}</span>
-            </div>` +
-                Object.entries(audioBars).map(([emotion, value]) => `
-                <div style="display:flex;align-items:center;margin-bottom:4px;">
-                    <span style="width:80px;text-transform:capitalize;font-size:0.95em;">${emotion}</span>
-                    <div style="flex:1;background:#e5e7eb;height:18px;border-radius:8px;overflow:hidden;margin:0 8px;">
-                        <div style="height:100%;width:${value}%;background:${colors[emotion]||'#3b82f6'};transition:width 0.3s;"></div>
-                    </div>
-                    <span style="width:36px;text-align:right;font-size:0.95em;">${value}%</span>
-                </div>
-            `).join('');
-            if (Object.keys(audioBars).length > 1) {
-                multiVoiceIndicator.style.display = 'block';
-            } else {
-                multiVoiceIndicator.style.display = 'none';
-            }
-        }
-
         // Event listeners
         startButton.addEventListener('click', startDetection);
         stopButton.addEventListener('click', stopDetection);
         connectButton.addEventListener('click', connectToAIServer);
+
+        // Anger threshold functionality
+        const angerThreshold = document.getElementById('angerThreshold');
+        const angerThresholdValue = document.getElementById('angerThresholdValue');
+        const popupAngerLevel = document.getElementById('popupAngerLevel');
+        let currentThreshold = 50;
+        let popupTimeout = null;
+
+        if (angerThreshold) {
+            angerThreshold.addEventListener('input', (e) => {
+                currentThreshold = parseInt(e.target.value);
+                angerThresholdValue.textContent = `${currentThreshold}%`;
+            });
+        }
+
+        function showAggressionPopup(angerLevel) {
+            const popup = document.getElementById('aggressionPopup');
+            popupAngerLevel.textContent = `${Math.round(angerLevel)}%`;
+            popup.style.display = 'flex';
+            setTimeout(() => { popup.style.opacity = '1'; }, 10);
+        }
+
+        function hideAggressionPopup() {
+            const popup = document.getElementById('aggressionPopup');
+            popup.style.opacity = '0';
+            setTimeout(() => { popup.style.display = 'none'; }, 300);
+        }
+
+        // Pop-up only triggers from FACIAL anger
+        function checkAngerThreshold(data) {
+            const facialAnger = data.emotionBars?.angry || 0;
+            if (facialAnger >= currentThreshold) {
+                socket.emit('anger_detected', {
+                    angerLevel: facialAnger,
+                    threshold: currentThreshold,
+                    timestamp: new Date().toISOString()
+                });
+                if (popupTimeout) clearTimeout(popupTimeout);
+                showAggressionPopup(facialAnger);
+                popupTimeout = setTimeout(hideAggressionPopup, 5000);
+            }
+        }
 
         // Initialize
         window.onload = () => {
