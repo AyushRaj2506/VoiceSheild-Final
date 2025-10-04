@@ -25,10 +25,10 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 # Flask app setup
-app = Flask(_name_)
+app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 CORS(app, resources={
     r"/*": {
