@@ -17,7 +17,6 @@ import base64
 import os
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from flask_cors import CORS
 from email_notifier import EmailNotifier
 
 # Configure detailed logging
@@ -30,13 +29,8 @@ logger = logging.getLogger(__name__)
 # Flask app setup
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-CORS(app, resources={
-    r"/*": {
-        "origins": ["https://deft-heliotrope-801d26.netlify.app"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
+
+# This is the correct and only necessary CORS configuration for Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="https://deft-heliotrope-801d26.netlify.app")
 
 # Global variables for storing analysis data
@@ -48,7 +42,7 @@ audio_feature_buffer = deque(maxlen=20)  # ~ last 20 secs if cadence is ~1 Hz
 class EmotionAnalyzer:
     """AI-powered emotion analyzer for combined audio and facial analysis"""
     
-    def _init_(self):
+    def __init__(self):
         self.facial_weights = {
             'angry': 0.7,
             'fearful': 0.2,
