@@ -612,3 +612,176 @@
         }
 
         // Start detection (camera + microphone)
+        async function startDetection() {
+            try {
+                if (!modelsLoaded) return showMessageBox('Models are still loading. Please wait.', 'loading');
+                if (!socket || !socket.connected) return showMessageBox('Please connect to AI server first.', 'error');
+
+                showMessageBox('Requesting camera and microphone access...', 'loading');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                    audio: { sampleRate: AUDIO_SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                });
+
+                videoInput.srcObject = stream;
+                audioStream = new MediaStream(stream.getAudioTracks());
+                await initializeAudio();
+
+                mediaRecorder = new MediaRecorder(audioStream);
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => sendAudioData(reader.result.split(',')[1]);
+                        reader.readAsDataURL(e.data);
+                    }
+                };
+                mediaRecorder.start(1000);
+
+                videoInput.onloadedmetadata = () => {
+                    const displaySize = { width: videoInput.videoWidth, height: videoInput.videoHeight };
+                    faceapi.matchDimensions(overlayCanvas, displaySize);
+
+                    // LATEST CHANGE: This interval block is updated to fix inverted text
+                    intervalId = setInterval(async () => {
+                        const detections = await faceapi.detectAllFaces(videoInput, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                            .withFaceLandmarks()
+                            .withFaceExpressions();
+                        
+                        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                        const ctx = overlayCanvas.getContext('2d');
+                        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+                        // Save the context state before global mirror transformation
+                        ctx.save();
+
+                        // Mirror the entire canvas to correctly draw bounding boxes on a mirrored video feed
+                        ctx.translate(overlayCanvas.width, 0);
+                        ctx.scale(-1, 1);
+
+                        resizedDetections.forEach(detection => {
+                            const box = detection.detection.box;
+                            const expressions = detection.expressions;
+
+                            // Find the dominant emotion with the highest score
+                            const dominantEmotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
+                            const score = expressions[dominantEmotion];
+                            const text = `${dominantEmotion} (${Math.round(score * 100)}%)`;
+                            const textX = box.x;
+                            const textY = box.y > 20 ? box.y - 10 : box.y + box.height + 20;
+
+                            // Draw the blue bounding box
+                            ctx.strokeStyle = '#3b82f6';
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(box.x, box.y, box.width, box.height);
+                            
+                            // --- Counter-transform for text drawing to make it readable ---
+                            ctx.save();
+                            ctx.translate(textX, textY);
+                            ctx.scale(-1, 1);
+                            ctx.fillStyle = '#60a5fa';
+                            ctx.font = '16px Inter';
+                            ctx.textAlign = 'right'; 
+                            ctx.fillText(text, 0, 0);
+                            ctx.restore();
+                            // --- End counter-transform for text ---
+                        });
+
+                        // Restore the canvas to its original state
+                        ctx.restore();
+
+                        // The rest of your logic remains the same
+                        updateEmotionProbabilities(resizedDetections);
+                        sendFacialData(resizedDetections);
+                        pushFaceCount(resizedDetections.length);
+                        faceCountDisplay.textContent = getStableFaceCount();
+
+                    }, 200);
+                };
+
+                isRecording = true;
+                statusDot.classList.add('recording');
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                hideMessageBoxes();
+
+            } catch (error) {
+                console.error('Error in startDetection:', error);
+                let msg = 'Error starting detection.';
+                if (error.name === 'NotAllowedError') msg = 'Camera/mic access denied.';
+                if (error.name === 'NotFoundError') msg = 'No camera/mic found.';
+                showMessageBox(msg, 'error');
+                startButton.disabled = false;
+            }
+        }
+
+        // Stop detection
+        function stopDetection() {
+            if (intervalId) clearInterval(intervalId);
+            if (mediaRecorder) mediaRecorder.stop();
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            videoInput.srcObject = null;
+            overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            ['facialScore', 'voiceScore', 'combinedScore'].forEach(id => document.getElementById(id).textContent = '0%');
+            faceCountDisplay.textContent = '0';
+            isRecording = false;
+            statusDot.classList.remove('recording');
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            hideMessageBoxes();
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startDetection);
+        stopButton.addEventListener('click', stopDetection);
+        connectButton.addEventListener('click', connectToAIServer);
+
+        // Anger threshold functionality
+        const angerThreshold = document.getElementById('angerThreshold');
+        const angerThresholdValue = document.getElementById('angerThresholdValue');
+        const popupAngerLevel = document.getElementById('popupAngerLevel');
+        let currentThreshold = 50;
+        let popupTimeout = null;
+
+        if (angerThreshold) {
+            angerThreshold.addEventListener('input', (e) => {
+                currentThreshold = parseInt(e.target.value);
+                angerThresholdValue.textContent = `${currentThreshold}%`;
+            });
+        }
+
+        function showAggressionPopup(angerLevel) {
+            const popup = document.getElementById('aggressionPopup');
+            popupAngerLevel.textContent = `${Math.round(angerLevel)}%`;
+            popup.style.display = 'flex';
+            setTimeout(() => { popup.style.opacity = '1'; }, 10);
+        }
+
+        function hideAggressionPopup() {
+            const popup = document.getElementById('aggressionPopup');
+            popup.style.opacity = '0';
+            setTimeout(() => { popup.style.display = 'none'; }, 300);
+        }
+
+        // Pop-up only triggers from FACIAL anger
+        function checkAngerThreshold(data) {
+            const facialAnger = data.emotionBars?.angry || 0;
+            if (facialAnger >= currentThreshold) {
+                socket.emit('anger_detected', {
+                    angerLevel: facialAnger,
+                    threshold: currentThreshold,
+                    timestamp: new Date().toISOString()
+                });
+                if (popupTimeout) clearTimeout(popupTimeout);
+                showAggressionPopup(facialAnger);
+                popupTimeout = setTimeout(hideAggressionPopup, 5000);
+            }
+        }
+
+        // Initialize
+        window.onload = () => {
+            loadModels();
+            createAudioBars();
+        };
+    </script>
+</body>
+</html>
