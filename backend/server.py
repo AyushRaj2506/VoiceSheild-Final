@@ -25,13 +25,19 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(_name_)
 
 # Flask app setup
-app = Flask(__name__)
+app = Flask(_name_)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-CORS(app, origins=["*"])
-socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app, resources={
+    r"/*": {
+        "origins": ["https://deft-heliotrope-801d26.netlify.app"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+socketio = SocketIO(app, cors_allowed_origins="https://deft-heliotrope-801d26.netlify.app")
 
 # Global variables for storing analysis data
 facial_data_buffer = deque(maxlen=10)
@@ -42,7 +48,7 @@ audio_feature_buffer = deque(maxlen=20)  # ~ last 20 secs if cadence is ~1 Hz
 class EmotionAnalyzer:
     """AI-powered emotion analyzer for combined audio and facial analysis"""
     
-    def __init__(self):
+    def _init_(self):
         self.facial_weights = {
             'angry': 0.7,
             'fearful': 0.2,
